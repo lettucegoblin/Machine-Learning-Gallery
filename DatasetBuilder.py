@@ -11,6 +11,7 @@ class DatasetBuilder:
         self.features = {}
         self.coefficients = {}
         self.noise = {}
+        self.ordinal_encoders = {}
 
     def add_feature(self, name, generator, coefficient=1, noise_level=0, depends_on=None, correlation_factor=0):
         """
@@ -39,8 +40,12 @@ class DatasetBuilder:
         # check if the feature is categorical
         if isinstance(values[0], str):
             # encode the values
-            encoder = OrdinalEncoder()
-            values = encoder.fit_transform(np.array(values).reshape(-1, 1)).reshape(-1)
+            if name not in self.ordinal_encoders:
+                self.ordinal_encoders[name] = OrdinalEncoder()
+                values = self.ordinal_encoders[name].fit_transform(np.array(values).reshape(-1, 1)).reshape(-1)
+            else:
+                encoder = self.ordinal_encoders[name]
+                values = encoder.transform(np.array(values).reshape(-1, 1)).reshape(-1)
         
         self.features[name] = values
         self.coefficients[name] = coefficient
@@ -85,6 +90,11 @@ class DatasetBuilder:
       
       # Add target to features
       self.features[target_name] = target
+
+      # replace all the encoded values with the original values
+      for feature in self.ordinal_encoders:
+          encoder = self.ordinal_encoders[feature]
+          self.features[feature] = encoder.inverse_transform(np.array(self.features[feature]).reshape(-1, 1)).reshape(-1)
       
       # Return as a DataFrame
       return pd.DataFrame(self.features)
